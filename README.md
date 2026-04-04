@@ -92,6 +92,8 @@ Run an automated smoke validation to verify correlation behavior:
 python3 test_validation.py
 ```
 
+`test_validation.py` auto-selects free localhost ports, so it can run even if another IDS instance is already running on 9001/9002.
+
 This performs two checks:
 1. Different attacker IPs across sensors should **not** produce false `Critical` alerts.
 2. Same attacker IP across sensors should produce at least one `Critical` alert for correlated multi-source behavior.

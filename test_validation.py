@@ -9,15 +9,19 @@ Checks:
 import json
 import os
 import queue
+import socket
 import time
 
+import attack_simulator
+import host_sensor as host_sensor_module
+import network_sensor as network_sensor_module
 from alert_manager import AlertManager
 from anomaly_detector import AnomalyDetector
+from attack_simulator import send_to_network_sensor, send_to_host_sensor
 from correlation_engine import CorrelationEngine
 from host_sensor import HostSensor
-from network_sensor import NetworkSensor
-from attack_simulator import send_to_network_sensor, send_to_host_sensor
 from metrics import MetricsCollector
+from network_sensor import NetworkSensor
 
 
 def _reset_logs():
@@ -36,6 +40,27 @@ def _load_alerts():
             if line:
                 alerts.append(json.loads(line))
     return alerts
+
+
+def _pick_free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def _configure_isolated_ports():
+    """Use ephemeral ports so validation doesn't collide with already-running IDS instances."""
+    net_port = _pick_free_port()
+    host_port = _pick_free_port()
+
+    network_sensor_module.NETWORK_SENSOR_PORT = net_port
+    host_sensor_module.HOST_SENSOR_PORT = host_port
+    attack_simulator.NETWORK_SENSOR_PORT = net_port
+    attack_simulator.HOST_SENSOR_PORT = host_port
+
+    print(f"[VALIDATION] Using ports network={net_port}, host={host_port}")
 
 
 def _send_port_scan(src_ip, dst_ip="127.0.0.1", start_port=2000, count=16, delay=0.03):
@@ -65,6 +90,7 @@ def _send_bruteforce(src_ip, username="admin", attempts=9, delay=0.08):
 
 def run_validation():
     _reset_logs()
+    _configure_isolated_ports()
 
     event_queue = queue.Queue()
     metrics = MetricsCollector()
@@ -74,42 +100,43 @@ def run_validation():
     alert_mgr = AlertManager(metrics)
     corr = CorrelationEngine(event_queue, alert_mgr)
 
-    anomaly.start()
-    net.start()
-    host.start()
-    corr.start()
-    time.sleep(0.8)
+    try:
+        anomaly.start()
+        net.start()
+        host.start()
+        corr.start()
+        time.sleep(0.8)
 
-    # Test 1: different IPs should not create false Critical by cross-source mixing
-    _send_port_scan("192.168.1.101")
-    _send_bruteforce("192.168.1.100", username="victim")
-    time.sleep(2.0)
+        # Test 1: different IPs should not create false Critical by cross-source mixing
+        _send_port_scan("192.168.1.101")
+        _send_bruteforce("192.168.1.100", username="victim")
+        time.sleep(2.0)
 
-    alerts_after_test1 = _load_alerts()
-    t1_critical = [a for a in alerts_after_test1 if a.get("severity") == "Critical"]
-    print(f"[TEST1] Alerts={len(alerts_after_test1)}, Critical={len(t1_critical)}")
+        alerts_after_test1 = _load_alerts()
+        t1_critical = [a for a in alerts_after_test1 if a.get("severity") == "Critical"]
+        print(f"[TEST1] Alerts={len(alerts_after_test1)}, Critical={len(t1_critical)}")
 
-    # Test 2: same IP multi-source behavior can produce Critical
-    _send_port_scan("192.168.50.50")
-    _send_bruteforce("192.168.50.50", username="root")
-    time.sleep(2.0)
+        # Test 2: same IP multi-source behavior can produce Critical
+        _send_port_scan("192.168.50.50")
+        _send_bruteforce("192.168.50.50", username="root")
+        time.sleep(2.0)
 
-    alerts_after_test2 = _load_alerts()
-    t2_critical = [a for a in alerts_after_test2 if a.get("severity") == "Critical"]
-    print(f"[TEST2] Alerts={len(alerts_after_test2)}, Critical={len(t2_critical)}")
+        alerts_after_test2 = _load_alerts()
+        t2_critical = [a for a in alerts_after_test2 if a.get("severity") == "Critical"]
+        print(f"[TEST2] Alerts={len(alerts_after_test2)}, Critical={len(t2_critical)}")
 
-    corr.stop()
-    net.stop()
-    host.stop()
-    anomaly.stop()
+        # Pass criteria
+        if len(t1_critical) > 0:
+            raise SystemExit("FAIL: False Critical detected for unrelated IP activity")
+        if len(t2_critical) == 0:
+            raise SystemExit("FAIL: No Critical detected for same-IP multi-source attack")
 
-    # Pass criteria
-    if len(t1_critical) > 0:
-        raise SystemExit("FAIL: False Critical detected for unrelated IP activity")
-    if len(t2_critical) == 0:
-        raise SystemExit("FAIL: No Critical detected for same-IP multi-source attack")
-
-    print("PASS: Validation checks succeeded.")
+        print("PASS: Validation checks succeeded.")
+    finally:
+        corr.stop()
+        net.stop()
+        host.stop()
+        anomaly.stop()
 
 
 if __name__ == "__main__":
