@@ -20,6 +20,7 @@ CRITICAL_THRESHOLD = 8.0
 HIGH_THRESHOLD     = 5.0
 MEDIUM_THRESHOLD   = 3.0
 LOW_THRESHOLD      = 1.0
+MAX_EVENT_TYPE_COUNT_PER_WINDOW = 5
 
 # Anomaly Detector Configs
 BASELINE_WINDOW_SIZE = 20
@@ -37,4 +38,5 @@ EVENT_WEIGHTS = {
     "privilege_escalation": 5.0,
     "connection_attempt":   0.5,
     "noise":                0.1,
+    "anomaly_detected":     2.0,
 }
