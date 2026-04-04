@@ -63,6 +63,8 @@ python3 main.py
 
 Use the menu to launch individual attack scenarios or run all scenarios for evaluation.
 
+For viva/demo, use **Correlated Multi-Source (Same IP)** to show deterministic cross-sensor corroboration.
+
 ## Output Files
 
 - `logs/events.json` – normalized events
@@ -127,3 +129,25 @@ This prints the actual module file paths being imported, your current working di
 ### Scoring saturation
 
 To prevent score explosion from repeated identical events, scoring now caps per-event-type contributions within a window using `MAX_EVENT_TYPE_COUNT_PER_WINDOW` in `config.py`.
+
+
+## Assignment Compliance: Required vs Optional Improvements
+
+### Required (for marks)
+- Multi-source architecture with network + host sensors, correlation engine, alert manager, and simulator.
+- Critical alert gating: `Critical` only when corroborated by independent evidence in-window (or deterministic multi-step rule).
+- Sliding time window, rule-based detectors (>=6), anomaly detector, severity scoring, and alert flood control (dedup/cooldown).
+- Reproducible evaluation flow and reporting metrics.
+
+### Optional quality improvements (good to have, but not strict blockers)
+- Reducing repeated `port_scan` emissions from a single long scan into one consolidated campaign alert.
+- Stronger attribution for anomaly events to concrete attacker IPs.
+- Additional performance optimizations for very high event rates.
+
+### Practical interpretation
+If required components above are implemented and demonstrated, your submission is generally assignment-complete. The optional items improve realism and polish, but are not usually hard requirements unless your instructor explicitly asks for them.
+
+
+### Debug verbosity
+
+Use `DEBUG_VERBOSE` in `config.py` to switch between detailed per-event prints and compact per-entity summary lines.

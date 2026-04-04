@@ -19,6 +19,7 @@ from config import (
     CONNECTION_RATE_THRESHOLD,
     TIME_WINDOW,
     REPLAY_WINDOW,
+    PORT_SCAN_ALERT_COOLDOWN,
 )
 
 
@@ -28,6 +29,7 @@ class NetworkSensor:
         self.anomaly_detector = anomaly_detector
         self.running = False
         self.port_scan_tracker = {}
+        self.port_scan_last_alert = {}
         self.connection_rate_tracker = {}
         self.replay_tracker = {}
         self.disabled = False
@@ -136,8 +138,10 @@ class NetworkSensor:
         ]
 
         unique_ports = {p for (t, p) in self.port_scan_tracker[src_ip]}
+        last_alert = self.port_scan_last_alert.get(src_ip, 0)
+        cooldown_active = (now - last_alert) < PORT_SCAN_ALERT_COOLDOWN
 
-        if len(unique_ports) > PORT_SCAN_THRESHOLD:
+        if len(unique_ports) > PORT_SCAN_THRESHOLD and not cooldown_active:
             evt = make_event(
                 source="network",
                 event_type=EVENT_PORT_SCAN,
@@ -146,7 +150,7 @@ class NetworkSensor:
                 extra={"unique_ports_count": len(unique_ports), "ports": list(unique_ports)},
             )
             self._emit(evt)
-            self.port_scan_tracker[src_ip] = []
+            self.port_scan_last_alert[src_ip] = now
 
     def _check_connection_rate(self, src_ip, now):
         if src_ip not in self.connection_rate_tracker:

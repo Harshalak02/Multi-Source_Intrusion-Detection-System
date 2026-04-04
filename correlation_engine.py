@@ -11,6 +11,7 @@ from config import (
     MEDIUM_THRESHOLD,
     LOW_THRESHOLD,
     MAX_EVENT_TYPE_COUNT_PER_WINDOW,
+    DEBUG_VERBOSE,
 )
 
 
@@ -104,12 +105,18 @@ class CorrelationEngine:
 
                 groups = self._group_by_entity(self.window_buffer)
                 for entity, entity_events in groups.items():
-                    severity, score, _, _ = self._evaluate_window(entity_events)
+                    severity, score, net_score, host_score = self._evaluate_window(entity_events)
 
                     if severity != "Info":
-                        print(f"\n[DEBUG] Entity Group: {entity}")
-                        for e in entity_events:
-                            print(f"{e['source']} | {e['event_type']} | {e.get('src_ip')} | t={e['timestamp']:.2f}")
+                        if DEBUG_VERBOSE:
+                            print(f"\n[DEBUG] Entity Group: {entity}")
+                            for e in entity_events:
+                                print(f"{e['source']} | {e['event_type']} | {e.get('src_ip')} | t={e['timestamp']:.2f}")
+                        else:
+                            print(
+                                f"[DEBUG] {entity} -> sev={severity}, score={score:.2f}, "
+                                f"events={len(entity_events)}, net={net_score:.2f}, host={host_score:.2f}"
+                            )
                         self.alert_manager.raise_alert(severity, score, entity_events.copy())
             except queue.Empty:
                 pass

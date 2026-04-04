@@ -8,6 +8,7 @@ CONNECTION_RATE_THRESHOLD = 20   # connections from single IP
 REPLAY_WINDOW = 30               # seconds
 BRUTE_FORCE_THRESHOLD = 5        # failed logins from a single user
 ALERT_COOLDOWN = 10              # seconds to suppress identical alerts
+PORT_SCAN_ALERT_COOLDOWN = 20    # suppress repeated scan alerts per source IP
 
 # Lists
 SUSPICIOUS_PROCESSES = [
@@ -40,3 +41,5 @@ EVENT_WEIGHTS = {
     "noise":                0.1,
     "anomaly_detected":     2.0,
 }
+
+DEBUG_VERBOSE = False            # set True for per-event debug prints

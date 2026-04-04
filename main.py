@@ -13,6 +13,7 @@ from attack_simulator import (
     scenario_noise_injection,
     scenario_replay_attack,
     scenario_sensor_failure,
+    scenario_multi_source_same_ip,
     run_all_scenarios,
 )
 from metrics import MetricsCollector
@@ -66,8 +67,9 @@ def main():
         print("  3. Noise Injection")
         print("  4. Replay Attack")
         print("  5. Sensor Failure Simulation")
-        print("  6. Run All Scenarios (for metrics)")
-        print("  7. Generate Metrics Report")
+        print("  6. Correlated Multi-Source (Same IP)")
+        print("  7. Run All Scenarios (for metrics)")
+        print("  8. Generate Metrics Report")
         print("  0. Exit")
         print("=" * 53)
 
@@ -84,8 +86,10 @@ def main():
         elif choice == "5":
             scenario_sensor_failure(net_sensor, host_sensor)
         elif choice == "6":
-            run_all_scenarios(net_sensor, host_sensor, metrics)
+            scenario_multi_source_same_ip()
         elif choice == "7":
+            run_all_scenarios(net_sensor, host_sensor, metrics)
+        elif choice == "8":
             metrics.print_report()
         elif choice == "0":
             print("[MAIN] Shutting down IDS...")
