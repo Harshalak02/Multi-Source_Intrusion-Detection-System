@@ -61,6 +61,7 @@ class AnomalyDetector:
                         source="network" if "port" in feature_name or "connection" in feature_name else "host",
                         event_type="anomaly_detected",
                         description=f"Anomaly in {feature_name}: z={z:.2f}, current={current_val}, mean={mu:.2f}",
+                        src_ip="anomaly_network" if "port" in feature_name or "connection" in feature_name else "anomaly_host",
                         extra={"feature": feature_name, "z_score": z, "current": current_val}
                     )
                     self.event_queue.put(evt)
