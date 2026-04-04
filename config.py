@@ -37,4 +37,5 @@ EVENT_WEIGHTS = {
     "privilege_escalation": 5.0,
     "connection_attempt":   0.5,
     "noise":                0.1,
+    "anomaly_detected":     1.2,
 }
