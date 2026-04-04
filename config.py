@@ -43,3 +43,4 @@ EVENT_WEIGHTS = {
 }
 
 DEBUG_VERBOSE = False            # set True for per-event debug prints
+DEBUG_MIN_INTERVAL_SEC = 2.0   # throttle compact debug per entity

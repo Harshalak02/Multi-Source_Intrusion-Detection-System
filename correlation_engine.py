@@ -12,6 +12,7 @@ from config import (
     LOW_THRESHOLD,
     MAX_EVENT_TYPE_COUNT_PER_WINDOW,
     DEBUG_VERBOSE,
+    DEBUG_MIN_INTERVAL_SEC,
 )
 
 
@@ -21,6 +22,8 @@ class CorrelationEngine:
         self.alert_manager = alert_manager
         self.window_buffer = []
         self.running = False
+        self.last_debug_time = {}
+        self.last_debug_severity = {}
 
     def start(self):
         self.running = True
@@ -113,10 +116,16 @@ class CorrelationEngine:
                             for e in entity_events:
                                 print(f"{e['source']} | {e['event_type']} | {e.get('src_ip')} | t={e['timestamp']:.2f}")
                         else:
-                            print(
-                                f"[DEBUG] {entity} -> sev={severity}, score={score:.2f}, "
-                                f"events={len(entity_events)}, net={net_score:.2f}, host={host_score:.2f}"
-                            )
+                            now = time.time()
+                            last_t = self.last_debug_time.get(entity, 0)
+                            last_s = self.last_debug_severity.get(entity)
+                            if (now - last_t) >= DEBUG_MIN_INTERVAL_SEC or last_s != severity:
+                                print(
+                                    f"[DEBUG] {entity} -> sev={severity}, score={score:.2f}, "
+                                    f"events={len(entity_events)}, net={net_score:.2f}, host={host_score:.2f}"
+                                )
+                                self.last_debug_time[entity] = now
+                                self.last_debug_severity[entity] = severity
                         self.alert_manager.raise_alert(severity, score, entity_events.copy())
             except queue.Empty:
                 pass

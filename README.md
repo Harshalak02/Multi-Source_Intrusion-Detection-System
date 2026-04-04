@@ -153,3 +153,4 @@ If required components above are implemented and demonstrated, your submission i
 ### Debug verbosity
 
 Use `DEBUG_VERBOSE` in `config.py` to switch between detailed per-event prints and compact per-entity summary lines.
+Compact debug is rate-limited by `DEBUG_MIN_INTERVAL_SEC` to avoid console flooding.
