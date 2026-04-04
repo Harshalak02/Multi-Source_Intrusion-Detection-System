@@ -8,6 +8,7 @@ CONNECTION_RATE_THRESHOLD = 20   # connections from single IP
 REPLAY_WINDOW = 30               # seconds
 BRUTE_FORCE_THRESHOLD = 5        # failed logins from a single user
 ALERT_COOLDOWN = 10              # seconds to suppress identical alerts
+PORT_SCAN_ALERT_COOLDOWN = 20    # suppress repeated scan alerts per source IP
 
 # Lists
 SUSPICIOUS_PROCESSES = [
@@ -20,6 +21,7 @@ CRITICAL_THRESHOLD = 8.0
 HIGH_THRESHOLD     = 5.0
 MEDIUM_THRESHOLD   = 3.0
 LOW_THRESHOLD      = 1.0
+MAX_EVENT_TYPE_COUNT_PER_WINDOW = 5
 
 # Anomaly Detector Configs
 BASELINE_WINDOW_SIZE = 20
@@ -37,4 +39,7 @@ EVENT_WEIGHTS = {
     "privilege_escalation": 5.0,
     "connection_attempt":   0.5,
     "noise":                0.1,
+    "anomaly_detected":     2.0,
 }
+
+DEBUG_VERBOSE = False            # set True for per-event debug prints

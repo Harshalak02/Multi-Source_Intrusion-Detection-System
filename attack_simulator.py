@@ -120,6 +120,39 @@ def scenario_replay_attack():
     print("[SIMULATOR] Replay attack sent.")
     print("[SIMULATOR] Expected: Rule 3 fires on repeated hash → EVENT_REPLAY_DETECTED")
 
+
+
+def scenario_multi_source_same_ip():
+    print("\n[SIMULATOR] Starting Correlated Multi-Source Attack (Same IP)...")
+    attacker_ip = "192.168.1.150"
+    target_ip = "127.0.0.1"
+
+    # Stage 1: network reconnaissance
+    for port in range(30, 55):
+        flow = {
+            "src_ip": attacker_ip,
+            "dst_ip": target_ip,
+            "src_port": 40000,
+            "dst_port": port,
+            "protocol": "TCP"
+        }
+        send_to_network_sensor(flow)
+        time.sleep(0.04)
+
+    # Stage 2: host brute-force from same IP
+    for _ in range(10):
+        log_entry = {
+            "log_type": "failed_login",
+            "username": "admin",
+            "src_ip": attacker_ip,
+            "timestamp": time.time()
+        }
+        send_to_host_sensor(log_entry)
+        time.sleep(0.12)
+
+    print("[SIMULATOR] Expected: correlated High/Critical because same source IP appears in both sensors.")
+
+
 def scenario_sensor_failure(network_sensor, host_sensor):
     print("\n[SIMULATOR] Starting Sensor Failure Simulation...")
 
@@ -164,6 +197,10 @@ def run_all_scenarios(net_sensor=None, host_sensor=None, metrics=None):
     if metrics: metrics.start_scenario("replay_attack", "attack")
     scenario_replay_attack()
     time.sleep(3)
+
+    if metrics: metrics.start_scenario("correlated_same_ip", "attack")
+    scenario_multi_source_same_ip()
+    time.sleep(3)
     
     if net_sensor and host_sensor:
         if metrics: metrics.start_scenario("sensor_failure", "attack")
@@ -184,7 +221,8 @@ def main():
         print("  3. Noise Injection")
         print("  4. Replay Attack")
         print("  5. Sensor Failure Simulation")
-        print("  6. Run All Scenarios Sequentially (for metrics)")
+        print("  6. Correlated Multi-Source (Same IP)")
+        print("  7. Run All Scenarios Sequentially (for metrics)")
         print("  0. Exit")
         print("="*53)
 
@@ -203,12 +241,14 @@ def main():
             # This is only available when simulator is started from main.py
             print("[INFO] Sensor failure simulation must be run from main.py (option 5).")
         elif choice == "6":
+            scenario_multi_source_same_ip()
+        elif choice == "7":
             run_all_scenarios()
         elif choice == "0":
             print("Exiting simulator.")
             break
         else:
-            print("[ERROR] Invalid choice. Please enter 0-6.")
+            print("[ERROR] Invalid choice. Please enter 0-7.")
 
 if __name__ == "__main__":
     main()
