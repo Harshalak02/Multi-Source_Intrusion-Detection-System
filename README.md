@@ -81,3 +81,49 @@ Use the menu to launch individual attack scenarios or run all scenarios for eval
 
 - No external IDS frameworks (Snort/Suricata) are used.
 - The implementation is socket/thread-based and runs on a single machine.
+
+## Quick Validation (Non-interactive)
+
+Run an automated smoke validation to verify correlation behavior:
+
+```bash
+python3 test_validation.py
+```
+
+This performs two checks:
+1. Different attacker IPs across sensors should **not** produce false `Critical` alerts.
+2. Same attacker IP across sensors should produce at least one `Critical` alert for correlated multi-source behavior.
+
+## Troubleshooting
+
+### `OSError: [Errno 98] Address already in use`
+
+This means another process is already bound to IDS ports `9001` or `9002` (often a previous `main.py` run still alive).
+
+Use:
+
+```bash
+lsof -i :9001 -i :9002
+kill -9 <PID>
+```
+
+Then run:
+
+```bash
+python3 main.py
+```
+
+The current startup path now fails fast with a clear message if bind fails, instead of continuing with broken sensors.
+
+If the traceback still points to old lines like `_listen -> server.bind(...)`, run:
+
+```bash
+python3 doctor_ports.py
+```
+
+This prints the actual module file paths being imported, your current working directory, and whether ports 9001/9002 are free.
+
+
+### Scoring saturation
+
+To prevent score explosion from repeated identical events, scoring now caps per-event-type contributions within a window using `MAX_EVENT_TYPE_COUNT_PER_WINDOW` in `config.py`.

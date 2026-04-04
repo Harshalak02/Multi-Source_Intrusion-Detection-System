@@ -1,7 +1,7 @@
 import queue
 import threading
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from config import (
     TIME_WINDOW,
@@ -10,6 +10,7 @@ from config import (
     HIGH_THRESHOLD,
     MEDIUM_THRESHOLD,
     LOW_THRESHOLD,
+    MAX_EVENT_TYPE_COUNT_PER_WINDOW,
 )
 
 
@@ -35,13 +36,6 @@ class CorrelationEngine:
         self.window_buffer = [e for e in self.window_buffer if now - e["timestamp"] <= TIME_WINDOW]
 
     def _entity_key(self, event):
-        """
-        Correlate by attacker-like identity to avoid global event mixing.
-        Priority:
-        1) src_ip
-        2) username (for host events without IP)
-        3) coarse synthetic key by source/event_type
-        """
         src_ip = event.get("src_ip")
         if src_ip:
             return f"ip:{src_ip}"
@@ -58,12 +52,20 @@ class CorrelationEngine:
             grouped[self._entity_key(e)].append(e)
         return grouped
 
+    def _capped_score(self, events):
+        counts = Counter(e["event_type"] for e in events)
+        score = 0.0
+        for event_type, count in counts.items():
+            capped_count = min(count, MAX_EVENT_TYPE_COUNT_PER_WINDOW)
+            score += EVENT_WEIGHTS.get(event_type, 0) * capped_count
+        return score
+
     def _evaluate_window(self, window_events):
         network_events = [e for e in window_events if e["source"] == "network"]
         host_events = [e for e in window_events if e["source"] == "host"]
 
-        network_score = sum(EVENT_WEIGHTS.get(e["event_type"], 0) for e in network_events)
-        host_score = sum(EVENT_WEIGHTS.get(e["event_type"], 0) for e in host_events)
+        network_score = self._capped_score(network_events)
+        host_score = self._capped_score(host_events)
         total_score = network_score + host_score
 
         both_sources_active = len(network_events) > 0 and len(host_events) > 0
