@@ -5,35 +5,60 @@ import queue
 import time
 
 from schema import (
-    make_event, 
-    EVENT_FAILED_LOGIN, 
+    make_event,
+    EVENT_FAILED_LOGIN,
     EVENT_SUCCESSFUL_LOGIN,
     EVENT_SUSPICIOUS_PROCESS,
-    EVENT_PRIVILEGE_ESCALATION
+    EVENT_PRIVILEGE_ESCALATION,
 )
 
 from config import (
-    HOST_SENSOR_PORT, 
-    BRUTE_FORCE_THRESHOLD, 
-    TIME_WINDOW, 
-    SUSPICIOUS_PROCESSES
+    HOST_SENSOR_PORT,
+    BRUTE_FORCE_THRESHOLD,
+    TIME_WINDOW,
+    SUSPICIOUS_PROCESSES,
 )
+
 
 class HostSensor:
     def __init__(self, event_queue: queue.Queue, anomaly_detector=None):
         self.event_queue = event_queue
         self.anomaly_detector = anomaly_detector
         self.running = False
-        self.failed_login_tracker = {}    # { username: [(timestamp, src_ip), ...] }
+        self.failed_login_tracker = {}
         self.successful_login_tracker = {}
         self.disabled = False
+        self.server = None
 
     def start(self):
+        if self.running:
+            return
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            server.bind(("127.0.0.1", HOST_SENSOR_PORT))
+            server.listen(50)
+            server.settimeout(1.0)
+        except OSError as exc:
+            server.close()
+            raise RuntimeError(
+                f"Host Sensor failed to bind 127.0.0.1:{HOST_SENSOR_PORT}. "
+                f"Address may already be in use. ({exc})"
+            ) from exc
+
+        self.server = server
         self.running = True
         threading.Thread(target=self._listen, daemon=True).start()
 
     def stop(self):
         self.running = False
+        if self.server:
+            try:
+                self.server.close()
+            except OSError:
+                pass
+            self.server = None
 
     def disable(self):
         self.disabled = True
@@ -42,18 +67,14 @@ class HostSensor:
         self.disabled = False
 
     def _listen(self):
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind(("127.0.0.1", HOST_SENSOR_PORT))
-        server.listen(50)
-        server.settimeout(1.0)
-        while self.running:
+        while self.running and self.server:
             try:
-                conn, addr = server.accept()
+                conn, _ = self.server.accept()
                 threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
             except socket.timeout:
                 continue
-        server.close()
+            except OSError:
+                break
 
     def _handle(self, conn):
         try:
@@ -62,10 +83,10 @@ class HostSensor:
             data = None
         finally:
             conn.close()
-        
+
         if not data or self.disabled:
             return
-            
+
         try:
             log_entry = json.loads(data)
             self._process_log(log_entry)
@@ -74,7 +95,7 @@ class HostSensor:
 
     def _process_log(self, log_entry):
         now = time.time()
-        log_type = log_entry.get("log_type")   # "failed_login", "successful_login", "process_creation"
+        log_type = log_entry.get("log_type")
 
         if log_type == "failed_login":
             if self.anomaly_detector:
@@ -88,88 +109,77 @@ class HostSensor:
     def _check_brute_force(self, log_entry, now):
         username = log_entry.get("username", "unknown")
         src_ip = log_entry.get("src_ip", "127.0.0.1")
-        
-        # Always emit a base failed login event 
+
         evt = make_event(
             source="host",
             event_type=EVENT_FAILED_LOGIN,
             description=f"Failed login for {username}",
             username=username,
             src_ip=src_ip,
-            extra={"src_ip": src_ip} # Important for correlator
+            extra={"src_ip": src_ip},
         )
         self._emit(evt)
 
-        # Track for Brute Force
         if username not in self.failed_login_tracker:
             self.failed_login_tracker[username] = []
-            
+
         self.failed_login_tracker[username].append((now, src_ip))
-        
-        # Prune old
+
         self.failed_login_tracker[username] = [
-            (t, ip) for (t, ip) in self.failed_login_tracker[username] 
-            if now - t <= TIME_WINDOW
+            (t, ip) for (t, ip) in self.failed_login_tracker[username] if now - t <= TIME_WINDOW
         ]
-        
+
         if len(self.failed_login_tracker[username]) > BRUTE_FORCE_THRESHOLD:
-            # Emit an elevated weight event since threshold is reached
-            # In purely scoring systems, we could also emit a brute force event
             evt_bf = make_event(
                 source="host",
-                event_type="brute_force_burst", # As weighted in config.py
+                event_type="brute_force_burst",
                 description=f"Brute-force burst detected for {username}",
                 username=username,
                 src_ip=src_ip,
-                extra={"failed_attempts": len(self.failed_login_tracker[username])}
+                extra={"failed_attempts": len(self.failed_login_tracker[username])},
             )
             self._emit(evt_bf)
-            # Reset after alerting
             self.failed_login_tracker[username] = []
 
     def _check_suspicious_process(self, log_entry, now):
         process_name = log_entry.get("process_name", "")
         username = log_entry.get("username", "unknown")
-        
+
         if process_name in SUSPICIOUS_PROCESSES:
             evt = make_event(
                 source="host",
                 event_type=EVENT_SUSPICIOUS_PROCESS,
                 description=f"Suspicious process '{process_name}' executed by {username}",
                 username=username,
-                process_name=process_name
+                process_name=process_name,
             )
             self._emit(evt)
 
     def _check_privilege_escalation(self, log_entry, now):
         username = log_entry.get("username", "unknown")
         src_ip = log_entry.get("src_ip", "127.0.0.1")
-        
-        # Always emit a regular successful login event
+
         evt_success = make_event(
             source="host",
             event_type=EVENT_SUCCESSFUL_LOGIN,
             description=f"Successful login for {username}",
             username=username,
-            src_ip=src_ip
+            src_ip=src_ip,
         )
         self._emit(evt_success)
-        
-        # Rule 6 logic: check if this successful login happened from an IP that had recent failed logins 
-        # for this same user inside the time window.
+
         recent_failures = self.failed_login_tracker.get(username, [])
-        # Prune to ensure we only look at TIME_WINDOW
         recent_failures = [(t, ip) for (t, ip) in recent_failures if now - t <= TIME_WINDOW]
-        
+
         failed_ips = {ip for (t, ip) in recent_failures}
-        
+
         if src_ip in failed_ips:
             evt_priv = make_event(
                 source="host",
                 event_type=EVENT_PRIVILEGE_ESCALATION,
                 description=f"Privilege escalation/Successful brute-force detected for {username} from {src_ip}",
                 username=username,
-                src_ip=src_ip
+                src_ip=src_ip,
             )
             self._emit(evt_priv)
 
