@@ -136,9 +136,12 @@ def test_anomaly_issue():
     time.sleep(3)
 
     alerts = _read_alerts()
+    critical = [a for a in alerts if a.get("severity") == "Critical"]
     low_or_medium = [a for a in alerts if a.get("severity") in ("Low", "Medium")]
-    if low_or_medium:
-        print("✅ PASS: Noise produced low/medium-level alerting as expected.")
+    if critical:
+        print(f"❌ FAIL: Noise test produced {len(critical)} Critical alert(s).")
+    elif low_or_medium:
+        print("✅ PASS: Noise produced low/medium-level alerting without Critical.")
     else:
         print("⚠️ WARN: No low/medium alerts observed; check anomaly baseline warm-up.")
 
@@ -164,18 +167,22 @@ def test_threshold_issue():
         print("⚠️ WARN: No High alert observed; thresholds may be too strict.")
 
 
-def run_all_tests():
-    print("\n🚀 Running All IDS Tests with live components...\n")
+def _run_isolated(test_fn):
     harness = TestHarness()
     harness.start()
     try:
-        test_cooldown_issue()
-        test_wrong_correlation()
-        test_anomaly_issue()
-        test_threshold_issue()
-        print("\n✅ Testing complete.")
+        test_fn()
     finally:
         harness.stop()
+
+
+def run_all_tests():
+    print("\n🚀 Running All IDS Tests with live components...\n")
+    _run_isolated(test_cooldown_issue)
+    _run_isolated(test_wrong_correlation)
+    _run_isolated(test_anomaly_issue)
+    _run_isolated(test_threshold_issue)
+    print("\n✅ Testing complete.")
 
 
 if __name__ == "__main__":
