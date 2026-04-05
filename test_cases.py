@@ -17,9 +17,10 @@ from alert_manager import AlertManager
 from anomaly_detector import AnomalyDetector
 from attack_simulator import (
     scenario_brute_force,
-    scenario_noise_injection,
     scenario_port_scan,
     scenario_replay_attack,
+    send_to_network_sensor,
+    send_to_host_sensor,
 )
 from correlation_engine import CorrelationEngine
 from host_sensor import HostSensor
@@ -128,13 +129,28 @@ def test_wrong_correlation():
 
 def test_anomaly_issue():
     print("\n==============================")
-    print("TEST 3: Anomaly / noise behavior")
+    print("TEST 3: Anomaly / controlled-noise behavior")
     print("==============================")
     _reset_logs()
 
-    scenario_noise_injection()
-    time.sleep(3)
+    # Controlled low-intensity noise to keep test output readable.
+    for i in range(12):
+        send_to_network_sensor({
+            "src_ip": "10.0.0.50",
+            "dst_ip": "127.0.0.1",
+            "src_port": 20000 + i,
+            "dst_port": 80 if i % 2 == 0 else 443,
+            "protocol": "TCP",
+        })
+        send_to_host_sensor({
+            "log_type": "failed_login",
+            "username": f"noise_user_{i}",
+            "src_ip": f"10.0.1.{(i % 10) + 1}",
+            "timestamp": time.time(),
+        })
+        time.sleep(0.08)
 
+    time.sleep(2)
     alerts = _read_alerts()
     critical = [a for a in alerts if a.get("severity") == "Critical"]
     low_or_medium = [a for a in alerts if a.get("severity") in ("Low", "Medium")]

@@ -26,6 +26,45 @@ def send_to_host_sensor(data: dict):
     finally:
         s.close()
 
+
+
+def scenario_benign_baseline():
+    print("\n[SIMULATOR] Starting Benign Baseline Activity...")
+    client_ip = "10.10.10.10"
+    target_ip = "127.0.0.1"
+
+    # Benign low-rate network activity
+    for port in [80, 443, 8080, 22] * 2:
+        flow = {
+            "src_ip": client_ip,
+            "dst_ip": target_ip,
+            "src_port": random.randint(20000, 50000),
+            "dst_port": port,
+            "protocol": "TCP"
+        }
+        send_to_network_sensor(flow)
+        time.sleep(0.2)
+
+    # Benign host activity: successful logins and normal process creation
+    for user in ["alice", "bob", "charlie"]:
+        send_to_host_sensor({
+            "log_type": "successful_login",
+            "username": user,
+            "src_ip": client_ip,
+            "timestamp": time.time(),
+        })
+        send_to_host_sensor({
+            "log_type": "process_creation",
+            "username": user,
+            "process_name": "python",
+            "timestamp": time.time(),
+        })
+        time.sleep(0.2)
+
+    print("[SIMULATOR] Benign baseline complete.")
+    print("[SIMULATOR] Expected: Mostly Info/Low, ideally no High/Critical.")
+
+
 def scenario_brute_force():
     print("\n[SIMULATOR] Starting Brute-Force Login Attack...")
     attacker_ip = "192.168.1.100"
@@ -182,18 +221,22 @@ def scenario_sensor_failure(network_sensor, host_sensor):
     print("[SIMULATOR] Network Sensor re-enabled.")
 
 def run_all_scenarios(net_sensor=None, host_sensor=None, metrics=None):
+    if metrics: metrics.start_scenario("benign_baseline", "benign")
+    scenario_benign_baseline()
+    time.sleep(3)
+
     if metrics: metrics.start_scenario("brute_force", "attack")
     scenario_brute_force()
     time.sleep(3)
-    
+
     if metrics: metrics.start_scenario("port_scan", "attack")
     scenario_port_scan()
     time.sleep(3)
-    
+
     if metrics: metrics.start_scenario("noise_injection", "benign")
     scenario_noise_injection()
     time.sleep(3)
-    
+
     if metrics: metrics.start_scenario("replay_attack", "attack")
     scenario_replay_attack()
     time.sleep(3)
@@ -201,14 +244,11 @@ def run_all_scenarios(net_sensor=None, host_sensor=None, metrics=None):
     if metrics: metrics.start_scenario("correlated_same_ip", "attack")
     scenario_multi_source_same_ip()
     time.sleep(3)
-    
+
     if net_sensor and host_sensor:
         if metrics: metrics.start_scenario("sensor_failure", "attack")
         scenario_sensor_failure(net_sensor, host_sensor)
         time.sleep(3)
-    scenario_noise_injection()
-    time.sleep(3)
-    scenario_replay_attack()
 
 def main():
     print("\n" + "="*53)
@@ -216,39 +256,41 @@ def main():
     print("="*53)
 
     while True:
-        print("\n  1. Brute-Force Login Attack")
-        print("  2. Port Scan Attack")
-        print("  3. Noise Injection")
-        print("  4. Replay Attack")
-        print("  5. Sensor Failure Simulation")
-        print("  6. Correlated Multi-Source (Same IP)")
-        print("  7. Run All Scenarios Sequentially (for metrics)")
+        print("\n  1. Benign Baseline")
+        print("  2. Brute-Force Login Attack")
+        print("  3. Port Scan Attack")
+        print("  4. Noise Injection")
+        print("  5. Replay Attack")
+        print("  6. Sensor Failure Simulation")
+        print("  7. Correlated Multi-Source (Same IP)")
+        print("  8. Run All Scenarios Sequentially (for metrics)")
         print("  0. Exit")
         print("="*53)
 
         choice = input("Enter your choice: ").strip()
 
         if choice == "1":
-            scenario_brute_force()
+            scenario_benign_baseline()
         elif choice == "2":
-            scenario_port_scan()
+            scenario_brute_force()
         elif choice == "3":
-            scenario_noise_injection()
+            scenario_port_scan()
         elif choice == "4":
-            scenario_replay_attack()
+            scenario_noise_injection()
         elif choice == "5":
-            # For sensor failure, we need the running sensor objects
-            # This is only available when simulator is started from main.py
-            print("[INFO] Sensor failure simulation must be run from main.py (option 5).")
+            scenario_replay_attack()
         elif choice == "6":
-            scenario_multi_source_same_ip()
+            print("[INFO] Sensor failure simulation must be run from main.py (option 6).")
         elif choice == "7":
+            scenario_multi_source_same_ip()
+        elif choice == "8":
             run_all_scenarios()
         elif choice == "0":
             print("Exiting simulator.")
             break
         else:
-            print("[ERROR] Invalid choice. Please enter 0-7.")
+            print("[ERROR] Invalid choice. Please enter 0-8.")
+
 
 if __name__ == "__main__":
     main()

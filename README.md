@@ -63,6 +63,8 @@ python3 main.py
 
 Use the menu to launch individual attack scenarios or run all scenarios for evaluation.
 
+Individual menu-driven attacks also create metrics scenarios so report generation works even when scenarios are executed one-by-one.
+
 For viva/demo, use **Correlated Multi-Source (Same IP)** to show deterministic cross-sensor corroboration.
 
 ## Output Files

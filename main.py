@@ -8,6 +8,7 @@ from correlation_engine import CorrelationEngine
 from alert_manager import AlertManager
 from anomaly_detector import AnomalyDetector
 from attack_simulator import (
+    scenario_benign_baseline,
     scenario_brute_force,
     scenario_port_scan,
     scenario_noise_injection,
@@ -62,34 +63,44 @@ def main():
         print("\n" + "=" * 53)
         print("  Multi-Source IDS — Attack Simulator")
         print("=" * 53)
-        print("  1. Brute-Force Login Attack")
-        print("  2. Port Scan Attack")
-        print("  3. Noise Injection")
-        print("  4. Replay Attack")
-        print("  5. Sensor Failure Simulation")
-        print("  6. Correlated Multi-Source (Same IP)")
-        print("  7. Run All Scenarios (for metrics)")
-        print("  8. Generate Metrics Report")
+        print("  1. Benign Baseline")
+        print("  2. Brute-Force Login Attack")
+        print("  3. Port Scan Attack")
+        print("  4. Noise Injection")
+        print("  5. Replay Attack")
+        print("  6. Sensor Failure Simulation")
+        print("  7. Correlated Multi-Source (Same IP)")
+        print("  8. Run All Scenarios (for metrics)")
+        print("  9. Generate Metrics Report")
         print("  0. Exit")
         print("=" * 53)
 
         choice = input("Enter your choice: ").strip()
 
         if choice == "1":
-            scenario_brute_force()
+            metrics.start_scenario("benign_baseline_manual", "benign")
+            scenario_benign_baseline()
         elif choice == "2":
-            scenario_port_scan()
+            metrics.start_scenario("brute_force_manual", "attack")
+            scenario_brute_force()
         elif choice == "3":
-            scenario_noise_injection()
+            metrics.start_scenario("port_scan_manual", "attack")
+            scenario_port_scan()
         elif choice == "4":
-            scenario_replay_attack()
+            metrics.start_scenario("noise_injection_manual", "benign")
+            scenario_noise_injection()
         elif choice == "5":
-            scenario_sensor_failure(net_sensor, host_sensor)
+            metrics.start_scenario("replay_attack_manual", "attack")
+            scenario_replay_attack()
         elif choice == "6":
-            scenario_multi_source_same_ip()
+            metrics.start_scenario("sensor_failure_manual", "attack")
+            scenario_sensor_failure(net_sensor, host_sensor)
         elif choice == "7":
-            run_all_scenarios(net_sensor, host_sensor, metrics)
+            metrics.start_scenario("correlated_same_ip_manual", "attack")
+            scenario_multi_source_same_ip()
         elif choice == "8":
+            run_all_scenarios(net_sensor, host_sensor, metrics)
+        elif choice == "9":
             metrics.print_report()
         elif choice == "0":
             print("[MAIN] Shutting down IDS...")

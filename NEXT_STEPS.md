@@ -18,10 +18,11 @@ python3 main.py
 ```
 
 In menu run in this order:
-1. `6` Correlated Multi-Source (Same IP)
-2. `3` Noise Injection
-3. `8` Generate Metrics Report
-4. `0` Exit
+1. `1` Benign Baseline
+2. `7` Correlated Multi-Source (Same IP)
+3. `4` Noise Injection
+4. `9` Generate Metrics Report
+5. `0` Exit
 
 ## 3) If startup fails due ports
 
@@ -51,3 +52,15 @@ python3 test_cases.py
 ```
 
 This now boots IDS components automatically and reports pass/fail style outputs for cooldown, correlation, anomaly/noise, and threshold checks.
+
+
+## One-command run (optional)
+
+```bash
+./run_all_checks.sh
+```
+
+This runs syntax check, port diagnostics, core validation, and integration harness in order.
+
+
+Note: Individual menu attacks now start their own metric scenario labels, so per-attack metrics are captured even without using "Run All".
