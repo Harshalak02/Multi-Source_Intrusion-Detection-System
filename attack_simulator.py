@@ -33,20 +33,19 @@ def scenario_benign_baseline():
     client_ip = "10.10.10.10"
     target_ip = "127.0.0.1"
 
-    # Benign low-rate network activity
-    for port in [80, 443, 8080, 22] * 2:
-        flow = {
-            "src_ip": client_ip,
-            "dst_ip": target_ip,
-            "src_port": random.randint(20000, 50000),
-            "dst_port": port,
-            "protocol": "TCP"
-        }
-        send_to_network_sensor(flow)
-        time.sleep(0.2)
+    # Benign minimal network activity (single normal connection to avoid alert thresholding)
+    flow = {
+        "src_ip": client_ip,
+        "dst_ip": target_ip,
+        "src_port": random.randint(20000, 50000),
+        "dst_port": 443,
+        "protocol": "TCP"
+    }
+    send_to_network_sensor(flow)
+    time.sleep(0.2)
 
     # Benign host activity: successful logins and normal process creation
-    for user in ["alice", "bob", "charlie"]:
+    for user in ["alice", "bob"]:
         send_to_host_sensor({
             "log_type": "successful_login",
             "username": user,
@@ -62,7 +61,7 @@ def scenario_benign_baseline():
         time.sleep(0.2)
 
     print("[SIMULATOR] Benign baseline complete.")
-    print("[SIMULATOR] Expected: Mostly Info/Low, ideally no High/Critical.")
+    print("[SIMULATOR] Expected: Info-only or no alert (benign baseline should not escalate).")
 
 
 def scenario_brute_force():

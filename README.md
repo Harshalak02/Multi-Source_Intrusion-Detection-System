@@ -66,6 +66,7 @@ Use the menu to launch individual attack scenarios or run all scenarios for eval
 Individual menu-driven attacks also create metrics scenarios so report generation works even when scenarios are executed one-by-one.
 
 For viva/demo, use **Correlated Multi-Source (Same IP)** to show deterministic cross-sensor corroboration.
+Benign baseline is intentionally minimal and should stay at Info/no-alert.
 
 ## Output Files
 
@@ -79,7 +80,7 @@ For viva/demo, use **Correlated Multi-Source (Same IP)** to show deterministic c
 2. Run benign/noise baseline
 3. Run one attack scenario
 4. Observe alerts and scores
-5. Generate metrics report from menu
+5. Generate metrics report from menu (scenario-level confusion matrix)
 
 ## Notes
 
@@ -156,3 +157,12 @@ If required components above are implemented and demonstrated, your submission i
 
 Use `DEBUG_VERBOSE` in `config.py` to switch between detailed per-event prints and compact per-entity summary lines.
 Compact debug is rate-limited by `DEBUG_MIN_INTERVAL_SEC` to avoid console flooding.
+
+
+### What is menu option 7: Correlated Multi-Source (Same IP)?
+
+This scenario simulates a single attacker (`192.168.1.150`) performing a two-stage attack:
+1. **Network recon stage**: rapid connection attempts across many destination ports (scan-like behavior).
+2. **Host abuse stage**: repeated failed login attempts from the **same source IP**.
+
+Because both network and host evidence align on the same entity within the active time window, the correlation engine can legitimately escalate to `Critical` when thresholds/pattern checks are satisfied.

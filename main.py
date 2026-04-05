@@ -20,6 +20,12 @@ from attack_simulator import (
 from metrics import MetricsCollector
 
 
+def _run_and_report(metrics, scenario_name, scenario_label, scenario_fn):
+    metrics.start_scenario(scenario_name, scenario_label)
+    scenario_fn()
+    metrics.print_report()
+
+
 def main():
     os.makedirs("logs", exist_ok=True)
     open("logs/events.json", "w").close()
@@ -78,26 +84,19 @@ def main():
         choice = input("Enter your choice: ").strip()
 
         if choice == "1":
-            metrics.start_scenario("benign_baseline_manual", "benign")
-            scenario_benign_baseline()
+            _run_and_report(metrics, "benign_baseline_manual", "benign", scenario_benign_baseline)
         elif choice == "2":
-            metrics.start_scenario("brute_force_manual", "attack")
-            scenario_brute_force()
+            _run_and_report(metrics, "brute_force_manual", "attack", scenario_brute_force)
         elif choice == "3":
-            metrics.start_scenario("port_scan_manual", "attack")
-            scenario_port_scan()
+            _run_and_report(metrics, "port_scan_manual", "attack", scenario_port_scan)
         elif choice == "4":
-            metrics.start_scenario("noise_injection_manual", "benign")
-            scenario_noise_injection()
+            _run_and_report(metrics, "noise_injection_manual", "benign", scenario_noise_injection)
         elif choice == "5":
-            metrics.start_scenario("replay_attack_manual", "attack")
-            scenario_replay_attack()
+            _run_and_report(metrics, "replay_attack_manual", "attack", scenario_replay_attack)
         elif choice == "6":
-            metrics.start_scenario("sensor_failure_manual", "attack")
-            scenario_sensor_failure(net_sensor, host_sensor)
+            _run_and_report(metrics, "sensor_failure_manual", "attack", lambda: scenario_sensor_failure(net_sensor, host_sensor))
         elif choice == "7":
-            metrics.start_scenario("correlated_same_ip_manual", "attack")
-            scenario_multi_source_same_ip()
+            _run_and_report(metrics, "correlated_same_ip_manual", "attack", scenario_multi_source_same_ip)
         elif choice == "8":
             run_all_scenarios(net_sensor, host_sensor, metrics)
         elif choice == "9":

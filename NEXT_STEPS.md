@@ -64,3 +64,6 @@ This runs syntax check, port diagnostics, core validation, and integration harne
 
 
 Note: Individual menu attacks now start their own metric scenario labels, so per-attack metrics are captured even without using "Run All".
+
+
+Note: `main.py` now auto-prints a metrics report after each individual scenario run (options 1-7).
