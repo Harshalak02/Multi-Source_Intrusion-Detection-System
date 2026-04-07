@@ -90,7 +90,7 @@ def main():
         elif choice == "3":
             _run_and_report(metrics, "port_scan_manual", "attack", scenario_port_scan)
         elif choice == "4":
-            _run_and_report(metrics, "noise_injection_manual", "benign", scenario_noise_injection)
+            _run_and_report(metrics, "noise_injection_manual", "attack", scenario_noise_injection)
         elif choice == "5":
             _run_and_report(metrics, "replay_attack_manual", "attack", scenario_replay_attack)
         elif choice == "6":

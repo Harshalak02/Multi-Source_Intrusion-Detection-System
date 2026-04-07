@@ -26,14 +26,12 @@ def send_to_host_sensor(data: dict):
     finally:
         s.close()
 
-
-
 def scenario_benign_baseline():
     print("\n[SIMULATOR] Starting Benign Baseline Activity...")
-    client_ip = "10.10.10.10"
+
+    client_ip = f"10.0.0.{random.randint(10, 50)}"
     target_ip = "127.0.0.1"
 
-    # Benign minimal network activity (single normal connection to avoid alert thresholding)
     flow = {
         "src_ip": client_ip,
         "dst_ip": target_ip,
@@ -42,27 +40,25 @@ def scenario_benign_baseline():
         "protocol": "TCP"
     }
     send_to_network_sensor(flow)
-    time.sleep(0.2)
+    time.sleep(0.3)
 
-    # Benign host activity: successful logins and normal process creation
     for user in ["alice", "bob"]:
         send_to_host_sensor({
             "log_type": "successful_login",
             "username": user,
             "src_ip": client_ip,
-            "timestamp": time.time(),
         })
+
         send_to_host_sensor({
             "log_type": "process_creation",
             "username": user,
-            "process_name": "python",
-            "timestamp": time.time(),
+            "process_name": random.choice(["chrome", "vscode", "terminal"]),
         })
-        time.sleep(0.2)
+
+        time.sleep(0.3)
 
     print("[SIMULATOR] Benign baseline complete.")
-    print("[SIMULATOR] Expected: Info-only or no alert (benign baseline should not escalate).")
-
+    print("[SIMULATOR] Expected: No alert.")
 
 def scenario_brute_force():
     print("\n[SIMULATOR] Starting Brute-Force Login Attack...")
@@ -104,32 +100,63 @@ def scenario_port_scan():
     print("[SIMULATOR] Expected: Rule 1 (Port Scan) fires → High alert if only network sensor")
 
 def scenario_noise_injection():
-    print("\n[SIMULATOR] Starting Noise Injection...")
-    attacker_ip = "10.0.0.50"
-    # Mix of low-weight noise events from both sensors
-    for i in range(50):
-        # Random low-level network probes (single port, not a scan)
-        flow = {
-            "src_ip":   attacker_ip,
+    """
+    Noise Injection Attack (Threat Model §6):
+    The adversary injects scattered junk traffic from many spoofed IPs to
+    overwhelm the IDS and mask a real hidden brute-force attack happening
+    simultaneously from a specific attacker IP.
+
+    Expected IDS behavior:
+      - Noise layer (many IPs, low intensity) → only Low alerts per IP
+      - Hidden attack (single real attacker IP) → still detected as High/Critical
+      - Demonstrates IDS robustness: sees through noise to find real threat
+    """
+    print("\n[SIMULATOR] Starting Noise Injection Attack (noise + hidden brute-force)...")
+    attacker_ip = "192.168.1.77"   # Real hidden attacker
+    target_user = "root"
+
+    print("[SIMULATOR] Phase 1: Injecting scattered noise to confuse IDS...")
+    # Noise layer: many different IPs, each sending very few requests
+    # → no single IP accumulates enough score to trigger High/Critical
+    for i in range(40):
+        noise_net_ip = f"10.0.1.{random.randint(1, 50)}"
+        send_to_network_sensor({
+            "src_ip":   noise_net_ip,
             "dst_ip":   "127.0.0.1",
             "src_port": random.randint(10000, 60000),
             "dst_port": random.choice([80, 443, 22, 8080]),
             "protocol": "TCP"
-        }
-        send_to_network_sensor(flow)
-
-        # Random benign-looking host events
-        log_entry = {
+        })
+        send_to_host_sensor({
             "log_type":  "failed_login",
-            "username":  f"user_{random.randint(1, 100)}",
-            "src_ip":    f"10.0.0.{random.randint(1, 254)}",
+            "username":  f"noiseuser_{random.randint(1, 200)}",
+            "src_ip":    f"172.16.{random.randint(0, 255)}.{random.randint(1, 254)}",
             "timestamp": time.time()
-        }
-        send_to_host_sensor(log_entry)
-        time.sleep(0.1)
+        })
+        time.sleep(0.05)
 
-    print("[SIMULATOR] Noise injection complete.")
-    print("[SIMULATOR] Expected: Only Low/Medium alerts. NO Critical alerts from noise alone.")
+    print(f"[SIMULATOR] Phase 2: Hidden brute-force from {attacker_ip} beneath the noise...")
+    # Real attack: brute-force from a single IP, interleaved with noise
+    for i in range(15):
+        # Noise packet to mask the real attack
+        send_to_network_sensor({
+            "src_ip":   f"10.0.1.{random.randint(1, 50)}",
+            "dst_ip":   "127.0.0.1",
+            "src_port": random.randint(10000, 60000),
+            "dst_port": random.choice([80, 443]),
+            "protocol": "TCP"
+        })
+        # Real malicious login attempt hidden among noise
+        send_to_host_sensor({
+            "log_type":  "failed_login",
+            "username":  target_user,
+            "src_ip":    attacker_ip,
+            "timestamp": time.time()
+        })
+        time.sleep(0.15)
+
+    print("[SIMULATOR] Noise injection attack complete.")
+    print(f"[SIMULATOR] Expected: Noise IPs → Low alerts only. Attacker {attacker_ip} → High/Critical detected despite noise.")
 
 def scenario_replay_attack():
     print("\n[SIMULATOR] Starting Replay Attack...")
@@ -232,7 +259,7 @@ def run_all_scenarios(net_sensor=None, host_sensor=None, metrics=None):
     scenario_port_scan()
     time.sleep(3)
 
-    if metrics: metrics.start_scenario("noise_injection", "benign")
+    if metrics: metrics.start_scenario("noise_injection", "attack")
     scenario_noise_injection()
     time.sleep(3)
 

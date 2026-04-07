@@ -37,8 +37,8 @@ EVENT_WEIGHTS = {
     "brute_force_burst":    4.0,
     "suspicious_process":   3.5,
     "privilege_escalation": 5.0,
-    "connection_attempt":   0.5,
-    "noise":                0.1,
+    "connection_attempt":   0.0, # changed from 0.5 to 0.0
+    "noise":                0.0, # changed from 0.1 to 0.0
     "anomaly_detected":     2.0,
 }
 
