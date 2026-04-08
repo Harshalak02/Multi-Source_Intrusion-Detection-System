@@ -99,6 +99,42 @@ def scenario_port_scan():
     print(f"[SIMULATOR] Sent probes to {len(ports_to_scan)} ports from {attacker_ip}")
     print("[SIMULATOR] Expected: Rule 1 (Port Scan) fires → High alert if only network sensor")
 
+def scenario_slow_port_scan():
+    """
+    Slow Port Scan Attack (Threat Model §6):
+    Attacker probes ports with a long delay between each attempt to stay
+    under connection-rate thresholds and evade flood detection.
+    The IDS catches it anyway via the distinct-port accumulator across TIME_WINDOW.
+
+    Timeline with 2s delay:
+      t=20s  → port 11 scanned → port_scan event fires (score +3.0)
+      t=40s  → PORT_SCAN_ALERT_COOLDOWN (20s) expires
+      t=40s  → port 21 scanned → port_scan fires again (+3.0)
+      Total score = 6.0 > HIGH_THRESHOLD (5.0) → High alert
+    """
+    print("\n[SIMULATOR] Starting Slow Port Scan Attack...")
+    attacker_ip = "192.168.1.102"   # Different IP from fast scan (192.168.1.101)
+    target_ip   = "127.0.0.1"
+    # 25 ports × 2s = 50s total (fits in TIME_WINDOW=60s).
+    # Fires port_scan at port 11 and again after cooldown expires at port 21.
+    # Two port_scan events → score 6.0 → High alert.
+    ports_to_scan = list(range(20, 45))  # 25 unique ports
+
+    for port in ports_to_scan:
+        flow = {
+            "src_ip":   attacker_ip,
+            "dst_ip":   target_ip,
+            "src_port": 54322,
+            "dst_port": port,
+            "protocol": "TCP"
+        }
+        send_to_network_sensor(flow)
+        time.sleep(2.0)  # 2s between probes — slow, stealthy scan
+
+    print(f"[SIMULATOR] Sent slow probes to {len(ports_to_scan)} ports from {attacker_ip}")
+    print("[SIMULATOR] Expected: 2× port_scan events fired → score=6.0 → High alert")
+    print("[SIMULATOR] Note: Slow scan evades connection-rate detection but NOT the distinct-port detector")
+
 def scenario_noise_injection():
     """
     Noise Injection Attack (Threat Model §6):
@@ -186,6 +222,71 @@ def scenario_replay_attack():
     print("[SIMULATOR] Expected: Rule 3 fires on repeated hash → EVENT_REPLAY_DETECTED")
 
 
+def scenario_modified_replay():
+    """
+    Modified Replay Attack (Threat Model §6):
+    The attacker observes benign traffic, then replays it with SLIGHT modifications
+    (tweaking the payload slightly each time) to evade the hash-based replay detector.
+
+    The MD5 hash includes: src_ip, dst_ip, dst_port, protocol, payload.
+    Changing the payload even slightly produces a completely different hash
+    → replay detector MISSES every packet.
+
+    However, the high volume of connections from a single IP still triggers
+    the connection-rate detector → IDS catches it through defense-in-depth.
+
+    Expected:
+      - No EVENT_REPLAY_DETECTED (hash-based detection evaded) ← demonstrates weakness
+      - High_traffic event fires due to connection flood from same IP ← IDS still catches it
+    """
+    print("\n[SIMULATOR] Starting Modified Replay Attack (slight payload tweaks)...")
+    attacker_ip = "192.168.1.201"   # Different IP from exact-replay (192.168.1.200)
+    target_ip   = "127.0.0.1"
+
+    # Step 1: Observe and record original benign flows
+    benign_payloads = [
+        "GET / HTTP/1.1\\r\\nHost: example.com",
+        "GET /login HTTP/1.1\\r\\nHost: example.com",
+        "POST /api/data HTTP/1.1\\r\\nHost: example.com",
+    ]
+    print("[SIMULATOR] Phase 1: Observing benign traffic (registering hashes)...")
+    for payload in benign_payloads:
+        send_to_network_sensor({
+            "src_ip":   attacker_ip,
+            "dst_ip":   target_ip,
+            "src_port": 45000,
+            "dst_port": 80,
+            "protocol": "TCP",
+            "payload":  payload,
+        })
+        time.sleep(0.5)
+
+    time.sleep(1)
+
+    # Step 2: Replay with slight payload modification each time
+    # Adding a tiny tweak (e.g., trailing space, extra header byte, version bump)
+    # → each hash is DIFFERENT → replay detector is bypassed
+    # 65 connections: high_traffic fires at conn 21, 42, 63 → 3 events × 2.0 = 6.0 → High ✅
+    print("[SIMULATOR] Phase 2: Replaying with slight payload modifications (evading hash check)...")
+    for i in range(65):
+        original = benign_payloads[i % len(benign_payloads)]
+        # Slight modification: append a unique marker — real attacker might change
+        # a timestamp field, padding byte, or sequence number
+        modified_payload = original + f" X-Seq:{i}"
+        send_to_network_sensor({
+            "src_ip":   attacker_ip,
+            "dst_ip":   target_ip,
+            "src_port": 45000 + i,   # src_port NOT in hash, so no effect on hash
+            "dst_port": 80,
+            "protocol": "TCP",
+            "payload":  modified_payload,  # Different hash each time → bypasses replay check
+        })
+        time.sleep(0.1)
+
+    print("[SIMULATOR] Modified replay attack complete.")
+    print("[SIMULATOR] Expected: No REPLAY_DETECTED events (hash evaded).")
+    print("[SIMULATOR] Expected: High_traffic fires from flood → High alert via defense-in-depth.")
+
 
 def scenario_multi_source_same_ip():
     print("\n[SIMULATOR] Starting Correlated Multi-Source Attack (Same IP)...")
@@ -259,12 +360,20 @@ def run_all_scenarios(net_sensor=None, host_sensor=None, metrics=None):
     scenario_port_scan()
     time.sleep(3)
 
+    if metrics: metrics.start_scenario("slow_port_scan", "attack")
+    scenario_slow_port_scan()
+    time.sleep(3)
+
     if metrics: metrics.start_scenario("noise_injection", "attack")
     scenario_noise_injection()
     time.sleep(3)
 
     if metrics: metrics.start_scenario("replay_attack", "attack")
     scenario_replay_attack()
+    time.sleep(3)
+
+    if metrics: metrics.start_scenario("modified_replay", "attack")
+    scenario_modified_replay()
     time.sleep(3)
 
     if metrics: metrics.start_scenario("correlated_same_ip", "attack")

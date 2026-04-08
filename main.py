@@ -11,8 +11,10 @@ from attack_simulator import (
     scenario_benign_baseline,
     scenario_brute_force,
     scenario_port_scan,
+    scenario_slow_port_scan,
     scenario_noise_injection,
     scenario_replay_attack,
+    scenario_modified_replay,
     scenario_sensor_failure,
     scenario_multi_source_same_ip,
     run_all_scenarios,
@@ -71,9 +73,11 @@ def main():
         print("=" * 53)
         print("  1. Benign Baseline")
         print("  2. Brute-Force Login Attack")
-        print("  3. Port Scan Attack")
+        print("  3. Port Scan Attack (Fast)")
+        print("  a. Port Scan Attack (Slow)")
         print("  4. Noise Injection")
-        print("  5. Replay Attack")
+        print("  5. Replay Attack (Exact)")
+        print("  b. Replay Attack (Modified — evades hash, caught by rate detector)")
         print("  6. Sensor Failure Simulation")
         print("  7. Correlated Multi-Source (Same IP)")
         print("  8. Run All Scenarios (for metrics)")
@@ -89,10 +93,14 @@ def main():
             _run_and_report(metrics, "brute_force_manual", "attack", scenario_brute_force)
         elif choice == "3":
             _run_and_report(metrics, "port_scan_manual", "attack", scenario_port_scan)
+        elif choice == "a":
+            _run_and_report(metrics, "slow_port_scan_manual", "attack", scenario_slow_port_scan)
         elif choice == "4":
             _run_and_report(metrics, "noise_injection_manual", "attack", scenario_noise_injection)
         elif choice == "5":
             _run_and_report(metrics, "replay_attack_manual", "attack", scenario_replay_attack)
+        elif choice == "b":
+            _run_and_report(metrics, "modified_replay_manual", "attack", scenario_modified_replay)
         elif choice == "6":
             _run_and_report(metrics, "sensor_failure_manual", "attack", lambda: scenario_sensor_failure(net_sensor, host_sensor))
         elif choice == "7":
