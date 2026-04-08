@@ -4,7 +4,7 @@ import time
 import threading
 import queue
 from schema import make_event
-from config import BASELINE_WINDOW_SIZE, ANOMALY_Z_THRESHOLD, ANOMALY_CHECK_INTERVAL
+from config import BASELINE_WINDOW_SIZE, ANOMALY_Z_THRESHOLD, ANOMALY_CHECK_INTERVAL, ANOMALY_MIN_BASELINE_POINTS, ANOMALY_EPSILON
 
 class AnomalyDetector:
     def __init__(self, event_queue: queue.Queue):
@@ -48,14 +48,13 @@ class AnomalyDetector:
             raw = self.current_counts[feature_name]
             current_val = len(raw) if isinstance(raw, set) else raw
 
-            if len(baseline) >= 5:    # Need at least 5 data points
+            if len(baseline) >= ANOMALY_MIN_BASELINE_POINTS:
                 mu = statistics.mean(baseline)
                 try:
                     sigma = statistics.stdev(baseline)
                 except statistics.StatisticsError:
                     sigma = 0.0
-                epsilon = 0.0001
-                z = (current_val - mu) / (sigma + epsilon)
+                z = (current_val - mu) / (sigma + ANOMALY_EPSILON)
                 if abs(z) > ANOMALY_Z_THRESHOLD:
                     evt = make_event(
                         source="network" if "port" in feature_name or "connection" in feature_name else "host",

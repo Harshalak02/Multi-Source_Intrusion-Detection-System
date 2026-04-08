@@ -25,8 +25,10 @@ MAX_EVENT_TYPE_COUNT_PER_WINDOW = 5
 
 # Anomaly Detector Configs
 BASELINE_WINDOW_SIZE = 20
+ANOMALY_MIN_BASELINE_POINTS = 5      # Minimum samples before Z-score is computed
 ANOMALY_Z_THRESHOLD = 2.5
 ANOMALY_CHECK_INTERVAL = 5
+ANOMALY_EPSILON = 0.0001             # Small constant to prevent division-by-zero in Z-score
 
 # Event Weights (for scoring model)
 EVENT_WEIGHTS = {
