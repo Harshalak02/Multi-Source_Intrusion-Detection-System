@@ -1,168 +1,214 @@
-# Multi-Source Intrusion Detection System (IDS)
+# 🚨 Multi-Source Intrusion Detection System (IDS)
 
-This project implements a lightweight **multi-source IDS** for the IIIT Hyderabad SNS Lab assignment.
-It correlates host and network telemetry, applies rule-based and statistical detection, and raises robust alerts with severity scoring.
+A lightweight **multi-source Intrusion Detection System (IDS)** developed for the **IIIT Hyderabad SNS Lab assignment**.  
+This system correlates **network and host telemetry**, detects suspicious activities, and generates **severity-based alerts**.
 
-## Features
+---
 
-- Unified JSON event schema across modules (`schema.py`)
-- Independent sensors:
-  - `network_sensor.py` (flows, port scan, replay, traffic rate)
-  - `host_sensor.py` (failed logins, suspicious processes, login escalation pattern)
-- Sliding-window correlation and score aggregation (`correlation_engine.py`)
-- Statistical anomaly detector with rolling baseline and z-score (`anomaly_detector.py`)
-- Alert manager with deduplication/cooldown (`alert_manager.py`)
-- Attack simulator for reproducible scenarios (`attack_simulator.py`)
-- Metrics: Precision, Recall, F1, FPR, FNR, alert latency, CPU and memory (`metrics.py`)
+## 📌 Overview
 
-## Architecture
+This IDS combines:
 
-1. Sensors generate normalized events and push to a shared queue.
-2. Correlation engine consumes events in a sliding time window.
-3. Scores are computed via `EVENT_WEIGHTS` in `config.py`.
-4. Severity is mapped to `Info/Low/Medium/High/Critical`.
-5. Alert manager logs and deduplicates alerts.
-6. Metrics collector tracks quality and runtime resource usage.
+- Network-level monitoring  
+- Host-level monitoring  
+- Correlation engine  
+- Anomaly detection  
+- Alert management  
+- Performance evaluation  
 
-## Security Requirement Enforcement
+It is designed to simulate real-world detection scenarios and evaluate detection quality using multiple metrics.
 
-- `Critical` is raised only when:
-  - both host and network evidence exist in the active window and score crosses critical threshold, or
-  - a deterministic multi-step pattern is detected (port scan + brute-force linkage).
-- Single-source evidence is capped at `High`.
+---
 
-## Implemented Detectors
+## ⚙️ Features
 
-Rule-based detectors:
-1. Port scan (distinct ports per source IP in time window)
-2. High connection rate
-3. Replay attack (flow hash repetition)
-4. Brute-force burst (failed login threshold)
-5. Suspicious process execution
-6. Privilege escalation pattern (failed logins followed by successful login from same IP)
+- Multi-source correlation (Host + Network)  
+- Rule-based + anomaly-based detection  
+- Sliding window event correlation  
+- Severity-based alerting:
+  - Info
+  - Low
+  - Medium
+  - High
+  - Critical  
+- Alert deduplication & cooldown handling  
+- Built-in attack simulator  
+- Detailed performance metrics:
+  - Precision, Recall, F1 Score  
+  - False Positive Rate (FPR)  
+  - False Negative Rate (FNR)  
+  - Alert latency  
+  - CPU & Memory usage  
 
-Statistical detector:
-- Anomaly detector using z-score over rolling baselines for:
-  - failed login rate
-  - unique ports rate
-  - connection rate
+---
 
-## Setup
+## 🧠 System Architecture
+
+```
+Sensors → Correlation Engine → Anomaly Detector → Alert Manager → Metrics
+```
+
+### Components
+
+**Sensors**
+- `network_sensor.py` → Captures network events  
+- `host_sensor.py` → Captures host/system events  
+
+**Core Engine**
+- `correlation_engine.py` → Correlates events across sources  
+- `anomaly_detector.py` → Detects deviations from baseline  
+
+**Alerting**
+- `alert_manager.py` → Generates & deduplicates alerts  
+
+**Evaluation**
+- `metrics.py` → Computes performance metrics  
+
+**Simulation**
+- `attack_simulator.py` → Runs predefined attack scenarios  
+
+---
+
+## 📁 Project Structure
+
+```
+.
+├── main.py
+├── network_sensor.py
+├── host_sensor.py
+├── correlation_engine.py
+├── anomaly_detector.py
+├── alert_manager.py
+├── attack_simulator.py
+├── metrics.py
+├── doctor_ports.py
+├── test_validation.py
+├── test_cases.py
+├── run_all_checks.sh
+└── logs/
+    ├── events.json
+    ├── alerts.json
+    └── metrics_report.txt
+```
+
+---
+
+## 🚀 Getting Started
+
+### 1. Create Virtual Environment
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
+
+### 2. Install Dependencies
+
+```bash
 pip install psutil
 ```
 
-## Run
+---
+
+## ▶️ Running the IDS
 
 ```bash
 python3 main.py
 ```
 
-Use the menu to launch individual attack scenarios or run all scenarios for evaluation.
+This launches the interactive simulator menu.
 
-Individual menu-driven attacks also create metrics scenarios so report generation works even when scenarios are executed one-by-one.
+---
 
-For viva/demo, use **Correlated Multi-Source (Same IP)** to show deterministic cross-sensor corroboration.
-Benign baseline is intentionally minimal and should stay at Info/no-alert.
+## 🧪 Attack Simulation Menu
 
-## Output Files
+```
+1  Benign Baseline
+2  Brute-Force Login Attack
+3  Port Scan Attack
+4  Noise Injection
+5  Replay Attack
+6  Sensor Failure Simulation
+7  Correlated Multi-Source Attack (Same IP)
+8  Run All Scenarios
+9  Generate Metrics Report
+0  Exit
+```
 
-- `logs/events.json` – normalized events
-- `logs/alerts.json` – raised alerts
-- `logs/metrics_report.txt` – latest metrics snapshot
+---
 
-## Reproducible Experiment Workflow
+## 📊 Output Files
 
-1. Start system (`python3 main.py`)
-2. Run benign/noise baseline
-3. Run one attack scenario
-4. Observe alerts and scores
-5. Generate metrics report from menu (scenario-level confusion matrix)
+- `logs/events.json` → All normalized events  
+- `logs/alerts.json` → Generated alerts  
+- `logs/metrics_report.txt` → Performance summary  
 
-## Notes
+---
 
-- No external IDS frameworks (Snort/Suricata) are used.
-- The implementation is socket/thread-based and runs on a single machine.
+## ✅ Validation & Testing
 
-## Quick Validation (Non-interactive)
-
-Run an automated smoke validation to verify correlation behavior:
+### Quick Validation
 
 ```bash
 python3 test_validation.py
 ```
 
-`test_validation.py` auto-selects free localhost ports, so it can run even if another IDS instance is already running on 9001/9002.
+### Full System Checks
 
-This performs two checks:
-1. Different attacker IPs across sensors should **not** produce false `Critical` alerts.
-2. Same attacker IP across sensors should produce at least one `Critical` alert for correlated multi-source behavior.
+```bash
+./run_all_checks.sh
+```
 
-## Troubleshooting
+---
 
-### `OSError: [Errno 98] Address already in use`
+## 🛠️ Troubleshooting
 
-This means another process is already bound to IDS ports `9001` or `9002` (often a previous `main.py` run still alive).
+### Port Already in Use
 
-Use:
+Error:
+```
+OSError: [Errno 98] Address already in use
+```
+
+Fix:
 
 ```bash
 lsof -i :9001 -i :9002
 kill -9 <PID>
-```
-
-Then run:
-
-```bash
 python3 main.py
 ```
 
-The current startup path now fails fast with a clear message if bind fails, instead of continuing with broken sensors.
+---
 
-If the traceback still points to old lines like `_listen -> server.bind(...)`, run:
+### Port Diagnostics
 
 ```bash
 python3 doctor_ports.py
 ```
 
-This prints the actual module file paths being imported, your current working directory, and whether ports 9001/9002 are free.
+---
 
+## 📈 Metrics Collected
 
-### Scoring saturation
+- True Positives (TP)  
+- False Positives (FP)  
+- False Negatives (FN)  
+- True Negatives (TN)  
+- Precision  
+- Recall  
+- F1 Score  
+- False Positive Rate (FPR)  
+- False Negative Rate (FNR)  
+- Average Alert Latency  
+- CPU Usage Snapshot  
+- Memory Usage Snapshot  
 
-To prevent score explosion from repeated identical events, scoring now caps per-event-type contributions within a window using `MAX_EVENT_TYPE_COUNT_PER_WINDOW` in `config.py`.
+---
 
+## 🎯 Use Cases
 
-## Assignment Compliance: Required vs Optional Improvements
+- Cybersecurity research & education  
+- IDS/IPS prototyping  
+- Attack simulation & benchmarking  
+- Multi-source telemetry correlation experiments  
 
-### Required (for marks)
-- Multi-source architecture with network + host sensors, correlation engine, alert manager, and simulator.
-- Critical alert gating: `Critical` only when corroborated by independent evidence in-window (or deterministic multi-step rule).
-- Sliding time window, rule-based detectors (>=6), anomaly detector, severity scoring, and alert flood control (dedup/cooldown).
-- Reproducible evaluation flow and reporting metrics.
-
-### Optional quality improvements (good to have, but not strict blockers)
-- Reducing repeated `port_scan` emissions from a single long scan into one consolidated campaign alert.
-- Stronger attribution for anomaly events to concrete attacker IPs.
-- Additional performance optimizations for very high event rates.
-
-### Practical interpretation
-If required components above are implemented and demonstrated, your submission is generally assignment-complete. The optional items improve realism and polish, but are not usually hard requirements unless your instructor explicitly asks for them.
-
-
-### Debug verbosity
-
-Use `DEBUG_VERBOSE` in `config.py` to switch between detailed per-event prints and compact per-entity summary lines.
-Compact debug is rate-limited by `DEBUG_MIN_INTERVAL_SEC` to avoid console flooding.
-
-
-### What is menu option 7: Correlated Multi-Source (Same IP)?
-
-This scenario simulates a single attacker (`192.168.1.150`) performing a two-stage attack:
-1. **Network recon stage**: rapid connection attempts across many destination ports (scan-like behavior).
-2. **Host abuse stage**: repeated failed login attempts from the **same source IP**.
-
-Because both network and host evidence align on the same entity within the active time window, the correlation engine can legitimately escalate to `Critical` when thresholds/pattern checks are satisfied.
